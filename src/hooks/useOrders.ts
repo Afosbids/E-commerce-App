@@ -1,0 +1,134 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+export interface Order {
+  id: string;
+  order_number: string;
+  status: string;
+  payment_status: string;
+  subtotal: number;
+  shipping_cost: number;
+  total: number;
+  shipping_address: Record<string, unknown> | null;
+  payment_reference: string | null;
+  notes: string | null;
+  created_at: string;
+  customer?: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    phone: string | null;
+  } | null;
+  order_items?: Array<{
+    id: string;
+    product_name: string;
+    variant_name: string | null;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    is_digital: boolean;
+  }>;
+}
+
+export const useOrders = () => {
+  const { isAdmin } = useAuth();
+
+  return useQuery({
+    queryKey: ['orders', isAdmin],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customers(id, email, full_name, phone),
+          order_items(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Order[];
+    },
+    enabled: isAdmin,
+  });
+};
+
+export const useUpdateOrderStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+};
+
+export const useCreateOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orderData: {
+      customerId: string;
+      items: Array<{
+        productId: string;
+        variantId?: string;
+        productName: string;
+        variantName?: string;
+        quantity: number;
+        unitPrice: number;
+        isDigital: boolean;
+      }>;
+      subtotal: number;
+      shippingCost: number;
+      total: number;
+      shippingAddress?: Record<string, unknown>;
+    }) => {
+      // Create order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          customer_id: orderData.customerId,
+          subtotal: orderData.subtotal,
+          shipping_cost: orderData.shippingCost,
+          total: orderData.total,
+          shipping_address: orderData.shippingAddress as unknown as Record<string, unknown>,
+        }])
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = orderData.items.map(item => ({
+        order_id: order.id,
+        product_id: item.productId,
+        variant_id: item.variantId || null,
+        product_name: item.productName,
+        variant_name: item.variantName || null,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.unitPrice * item.quantity,
+        is_digital: item.isDigital,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      return order;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+};
