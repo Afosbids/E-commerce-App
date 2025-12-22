@@ -14,6 +14,43 @@ const emailSchema = z.string().email('Invalid email address').max(255);
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters').max(100);
 const nameSchema = z.string().min(1, 'Name is required').max(100);
 
+// Sanitize auth error messages to prevent information leakage
+const sanitizeAuthError = (error: Error): string => {
+  const message = error.message.toLowerCase();
+  
+  // Generic message for login failures (prevents email enumeration)
+  if (message.includes('invalid login credentials') || 
+      message.includes('invalid password') ||
+      message.includes('user not found')) {
+    return 'Invalid email or password';
+  }
+  
+  // User already registered
+  if (message.includes('already registered') || 
+      message.includes('already exists') ||
+      message.includes('duplicate')) {
+    return 'An account with this email already exists';
+  }
+  
+  // Rate limiting
+  if (message.includes('rate limit') || message.includes('too many')) {
+    return 'Too many attempts. Please try again later.';
+  }
+  
+  // Email confirmation
+  if (message.includes('confirm') || message.includes('verify')) {
+    return 'Please check your email to confirm your account';
+  }
+  
+  // Password requirements
+  if (message.includes('password')) {
+    return 'Password does not meet requirements';
+  }
+  
+  // Default generic message for unknown errors
+  return 'Authentication failed. Please try again.';
+};
+
 const Auth: React.FC = () => {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +88,7 @@ const Auth: React.FC = () => {
     setLoading(false);
 
     if (error) {
-      toast({ title: 'Sign In Failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Sign In Failed', description: sanitizeAuthError(error), variant: 'destructive' });
     } else {
       toast({ title: 'Welcome back!' });
       navigate('/');
@@ -77,7 +114,7 @@ const Auth: React.FC = () => {
     setLoading(false);
 
     if (error) {
-      toast({ title: 'Sign Up Failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Sign Up Failed', description: sanitizeAuthError(error), variant: 'destructive' });
     } else {
       toast({ title: 'Account created!', description: 'You can now sign in.' });
     }
