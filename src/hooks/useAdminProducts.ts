@@ -139,7 +139,7 @@ export const useUpdateProduct = () => {
           product_type: formData.product_type,
           is_active: formData.is_active,
           featured: formData.featured,
-          images: formData.images as unknown as Json,
+          images: formData.images,
           digital_file_url: formData.digital_file_url || null,
         })
         .eq('id', id)
