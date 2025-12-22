@@ -76,6 +76,10 @@ const ProductForm: React.FC = () => {
     }));
   };
 
+  // Allowed image MIME types (no SVG to prevent XSS)
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -85,7 +89,37 @@ const ProductForm: React.FC = () => {
 
     try {
       for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
+        // Validate MIME type
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          toast({ 
+            title: 'Invalid file type', 
+            description: `"${file.name}" is not allowed. Only JPEG, PNG, GIF, and WebP images are accepted.`,
+            variant: 'destructive' 
+          });
+          continue;
+        }
+
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+          toast({ 
+            title: 'File too large', 
+            description: `"${file.name}" exceeds the 5MB limit.`,
+            variant: 'destructive' 
+          });
+          continue;
+        }
+
+        const fileExt = file.name.split('.').pop()?.toLowerCase();
+        // Additional extension validation
+        if (!fileExt || !['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) {
+          toast({ 
+            title: 'Invalid file extension', 
+            description: `"${file.name}" has an unsupported extension.`,
+            variant: 'destructive' 
+          });
+          continue;
+        }
+
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `products/${fileName}`;
 
@@ -102,11 +136,13 @@ const ProductForm: React.FC = () => {
         newImages.push(publicUrl);
       }
 
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, ...newImages],
-      }));
-      toast({ title: 'Images uploaded successfully' });
+      if (newImages.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, ...newImages],
+        }));
+        toast({ title: 'Images uploaded successfully' });
+      }
     } catch (error) {
       toast({ title: 'Failed to upload images', variant: 'destructive' });
     } finally {
@@ -255,7 +291,7 @@ const ProductForm: React.FC = () => {
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     multiple
                     onChange={handleImageUpload}
                     className="hidden"
