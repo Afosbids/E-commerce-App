@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Truck, Plus, Pencil } from 'lucide-react';
+import { shippingZoneSchema, parseRegions } from '@/lib/validations';
 
 interface ShippingZone {
   id: string;
@@ -96,14 +97,24 @@ const ShippingZones: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    const parsedRegions = parseRegions(formData.regions);
+    
     const zoneData = {
-      name: formData.name,
-      regions: formData.regions.split(',').map(r => r.trim()).filter(Boolean),
+      name: formData.name.trim(),
+      regions: parsedRegions,
       rate: formData.rate,
       min_order_amount: formData.min_order_amount || null,
-      estimated_days: formData.estimated_days || null,
+      estimated_days: formData.estimated_days?.trim() || null,
       is_active: formData.is_active,
     };
+
+    // Validate with zod
+    const validation = shippingZoneSchema.safeParse(zoneData);
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => e.message).join(', ');
+      toast({ title: 'Validation error', description: errors, variant: 'destructive' });
+      return;
+    }
 
     try {
       if (editingZone) {
