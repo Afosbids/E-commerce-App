@@ -1,15 +1,23 @@
 import React from 'react';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, ShoppingCart, Users, AlertTriangle } from 'lucide-react';
+import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminHeader from '@/components/admin/AdminHeader';
+import DashboardHome from './DashboardHome';
+import ProductsList from './ProductsList';
+import ProductForm from './ProductForm';
+import OrdersList from './OrdersList';
+import InventoryList from './InventoryList';
+import CategoriesList from './CategoriesList';
+import CustomersList from './CustomersList';
+import ShippingZones from './ShippingZones';
 
 const AdminDashboard: React.FC = () => {
   const { isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
@@ -20,57 +28,24 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container-wide py-8">
-        <h1 className="font-heading text-3xl font-bold mb-8">Admin Dashboard</h1>
-        
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Customers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Full admin panel with product management, order management, and analytics coming in the next iteration. Add products directly through the backend database.</p>
-          </CardContent>
-        </Card>
+    <div className="flex min-h-screen bg-muted/30">
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col">
+        <AdminHeader />
+        <main className="flex-1 p-6 overflow-auto">
+          <Routes>
+            <Route index element={<DashboardHome />} />
+            <Route path="products" element={<ProductsList />} />
+            <Route path="products/new" element={<ProductForm />} />
+            <Route path="products/:id/edit" element={<ProductForm />} />
+            <Route path="categories" element={<CategoriesList />} />
+            <Route path="orders" element={<OrdersList />} />
+            <Route path="inventory" element={<InventoryList />} />
+            <Route path="customers" element={<CustomersList />} />
+            <Route path="shipping" element={<ShippingZones />} />
+            <Route path="settings" element={<div className="text-muted-foreground">Settings coming soon</div>} />
+          </Routes>
+        </main>
       </div>
     </div>
   );
