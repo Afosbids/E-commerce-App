@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { ShieldCheck, ShieldOff, Loader2, Copy, Check, QrCode } from 'lucide-react';
 import { useTwoFactorAuth } from '@/hooks/useTwoFactorAuth';
+import { useAdminAlerts } from '@/hooks/useAdminAlerts';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface Factor {
@@ -46,6 +48,8 @@ const TwoFactorEnrollment: React.FC = () => {
     error, 
     clearError 
   } = useTwoFactorAuth();
+  const { alert2FAEnabled, alert2FADisabled } = useAdminAlerts();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -88,6 +92,12 @@ const TwoFactorEnrollment: React.FC = () => {
         title: '2FA Enabled', 
         description: 'Two-factor authentication is now active for your account' 
       });
+      
+      // Send admin alert for 2FA enabled
+      if (user?.email) {
+        await alert2FAEnabled(user.email, user.user_metadata?.full_name);
+      }
+      
       setShowEnrollDialog(false);
       setEnrollmentData(null);
       setVerificationCode('');
@@ -106,6 +116,12 @@ const TwoFactorEnrollment: React.FC = () => {
         title: '2FA Disabled', 
         description: 'Two-factor authentication has been removed from your account' 
       });
+      
+      // Send admin alert for 2FA disabled
+      if (user?.email) {
+        await alert2FADisabled(user.email, user.user_metadata?.full_name);
+      }
+      
       setShowDisableDialog(false);
       await loadMFAStatus();
     }
