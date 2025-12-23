@@ -380,6 +380,60 @@ export type Database = {
           },
         ]
       }
+      product_reviews: {
+        Row: {
+          admin_notes: string | null
+          content: string
+          created_at: string
+          customer_id: string
+          id: string
+          product_id: string
+          rating: number
+          status: Database["public"]["Enums"]["review_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          content: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          product_id: string
+          rating: number
+          status?: Database["public"]["Enums"]["review_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          content?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          product_id?: string
+          rating?: number
+          status?: Database["public"]["Enums"]["review_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_variants: {
         Row: {
           created_at: string
@@ -597,6 +651,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "customer"
+      review_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -725,6 +780,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "customer"],
+      review_status: ["pending", "approved", "rejected"],
     },
   },
 } as const

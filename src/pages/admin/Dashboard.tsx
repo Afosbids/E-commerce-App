@@ -11,6 +11,7 @@ import InventoryList from './InventoryList';
 import CategoriesList from './CategoriesList';
 import CustomersList from './CustomersList';
 import ShippingZones from './ShippingZones';
+import ReviewsList from './ReviewsList';
 
 const AdminDashboard: React.FC = () => {
   const { isAdmin, loading } = useAuth();
@@ -43,6 +44,7 @@ const AdminDashboard: React.FC = () => {
             <Route path="inventory" element={<InventoryList />} />
             <Route path="customers" element={<CustomersList />} />
             <Route path="shipping" element={<ShippingZones />} />
+            <Route path="reviews" element={<ReviewsList />} />
             <Route path="settings" element={<div className="text-muted-foreground">Settings coming soon</div>} />
           </Routes>
         </main>

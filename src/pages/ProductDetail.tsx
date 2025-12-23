@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Package, Minus, Plus, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
+import { Separator } from '@/components/ui/separator';
+import ProductReviewsSection from '@/components/reviews/ProductReviewsSection';
 const ProductDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const { data: product, isLoading } = useProduct(slug || '');
@@ -129,6 +130,10 @@ const ProductDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Reviews Section */}
+        <Separator className="my-12" />
+        <ProductReviewsSection productId={product.id} />
       </div>
     </Layout>
   );
