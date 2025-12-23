@@ -5,10 +5,11 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreateOrder } from '@/hooks/useCreateOrder';
 import { usePaystack } from '@/hooks/usePaystack';
-import { useProfile, useAddresses } from '@/hooks/useAccount';
+import { useProfile, useAddresses, useAddAddress, useCustomer } from '@/hooks/useAccount';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -45,7 +46,9 @@ const Checkout: React.FC = () => {
   const { createOrder, isLoading: isCreatingOrder, error: orderError } = useCreateOrder();
   const { initializePayment, verifyPayment, isLoading: isPaymentLoading, error: paymentError } = usePaystack();
   const { data: profile } = useProfile();
-  const { data: addresses } = useAddresses();
+  const { data: addresses, refetch: refetchAddresses } = useAddresses();
+  const { data: customer } = useCustomer();
+  const addAddress = useAddAddress();
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -64,6 +67,7 @@ const Checkout: React.FC = () => {
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string } | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(false);
   
   // Pre-fill form with profile and default address
   useEffect(() => {
@@ -236,6 +240,25 @@ const Checkout: React.FC = () => {
         setRateLimitMessage(`Too many orders. Please wait ${minutes} minutes before placing another order.`);
       }
       return;
+    }
+
+    // Save address if checkbox is checked and user is logged in with a new address
+    if (saveAddress && user && customer && selectedAddressId === 'new') {
+      try {
+        await addAddress.mutateAsync({
+          address_line1: formData.addressLine1,
+          address_line2: formData.addressLine2 || undefined,
+          city: formData.city,
+          state: formData.state,
+          postal_code: formData.postalCode || undefined,
+          country: 'Nigeria',
+          is_default: !addresses || addresses.length === 0, // Make default if no other addresses
+        });
+        refetchAddresses();
+      } catch (error) {
+        console.error('Error saving address:', error);
+        // Don't block checkout if address save fails
+      }
     }
 
     // Step 2: Initialize Paystack payment
@@ -481,6 +504,23 @@ const Checkout: React.FC = () => {
                       placeholder="100001"
                     />
                   </div>
+
+                  {/* Save Address Checkbox - only show for logged-in users entering a new address */}
+                  {user && selectedAddressId === 'new' && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="saveAddress"
+                        checked={saveAddress}
+                        onCheckedChange={(checked) => setSaveAddress(checked === true)}
+                      />
+                      <Label 
+                        htmlFor="saveAddress" 
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Save this address for future orders
+                      </Label>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
