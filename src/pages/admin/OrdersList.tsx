@@ -184,7 +184,20 @@ const OrdersList: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-medium mb-2">Shipping Address</h4>
-                  {selectedOrder.shipping_address ? (
+                  {selectedOrder.address ? (
+                    <div className="text-sm text-muted-foreground">
+                      <p>{selectedOrder.address.address_line1}</p>
+                      {selectedOrder.address.address_line2 && (
+                        <p>{selectedOrder.address.address_line2}</p>
+                      )}
+                      <p>{selectedOrder.address.city}, {selectedOrder.address.state}</p>
+                      {selectedOrder.address.postal_code && (
+                        <p>{selectedOrder.address.postal_code}</p>
+                      )}
+                      <p>{selectedOrder.address.country}</p>
+                    </div>
+                  ) : selectedOrder.shipping_address ? (
+                    // Backward compatibility for legacy JSONB addresses
                     <div className="text-sm text-muted-foreground">
                       {Object.entries(selectedOrder.shipping_address).map(([key, value]) => (
                         <p key={key}>{String(value)}</p>

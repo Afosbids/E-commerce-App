@@ -316,6 +316,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          address_id: string | null
           created_at: string
           customer_id: string | null
           id: string
@@ -331,6 +332,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address_id?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string
@@ -346,6 +348,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address_id?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string
@@ -361,6 +364,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
