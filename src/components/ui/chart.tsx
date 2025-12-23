@@ -58,6 +58,32 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+// Sanitize CSS color values to prevent CSS injection attacks
+const sanitizeColor = (color: string): string => {
+  // Allow only valid CSS color formats: hex, rgb, rgba, hsl, hsla, named colors
+  const trimmedColor = color.trim();
+  
+  // Check for valid color formats
+  const validColorPatterns = [
+    /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/, // Hex colors
+    /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/i, // rgb()
+    /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/i, // rgba()
+    /^hsl\(\s*\d{1,3}\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*\)$/i, // hsl()
+    /^hsla\(\s*\d{1,3}\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+\s*\)$/i, // hsla()
+    /^[a-z]+$/i, // Named colors (e.g., red, blue)
+  ];
+  
+  const isValidColor = validColorPatterns.some(pattern => pattern.test(trimmedColor));
+  
+  if (!isValidColor) {
+    console.warn(`ChartStyle: Invalid color value rejected: ${color}`);
+    return 'transparent';
+  }
+  
+  // Remove any characters that could break out of CSS context
+  return trimmedColor.replace(/[;{}()<>'"\\]/g, '');
+};
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
@@ -75,7 +101,7 @@ ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    return color ? `  --color-${key}: ${sanitizeColor(color)};` : null;
   })
   .join("\n")}
 }
