@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreateOrder } from '@/hooks/useCreateOrder';
+import { usePaystack } from '@/hooks/usePaystack';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShoppingBag, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Loader2, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -30,9 +31,11 @@ const SHIPPING_COST = 2500; // NGN 2,500 flat rate
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { items, subtotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { createOrder, isLoading, error: orderError } = useCreateOrder();
+  const { createOrder, isLoading: isCreatingOrder, error: orderError } = useCreateOrder();
+  const { initializePayment, verifyPayment, isLoading: isPaymentLoading, error: paymentError } = usePaystack();
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -48,8 +51,38 @@ const Checkout: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string } | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const total = subtotal + SHIPPING_COST;
+  const isLoading = isCreatingOrder || isPaymentLoading || isVerifying;
+
+  // Handle payment verification on redirect back from Paystack
+  useEffect(() => {
+    const verifyOnRedirect = async () => {
+      const shouldVerify = searchParams.get('verify');
+      const orderId = searchParams.get('orderId');
+      const reference = searchParams.get('reference') || searchParams.get('trxref');
+
+      if (shouldVerify && orderId && reference) {
+        setIsVerifying(true);
+        const result = await verifyPayment(reference, orderId);
+        setIsVerifying(false);
+
+        if (result.success) {
+          setOrderSuccess({ orderNumber: result.order?.order_number || 'N/A' });
+          clearCart();
+          toast.success('Payment successful! Order confirmed.');
+          // Clean up URL
+          navigate('/checkout', { replace: true });
+        } else {
+          toast.error(result.error || 'Payment verification failed');
+          navigate('/checkout', { replace: true });
+        }
+      }
+    };
+
+    verifyOnRedirect();
+  }, [searchParams]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(price);
@@ -58,7 +91,6 @@ const Checkout: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear validation error when user types
     if (validationErrors[name]) {
       setValidationErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -108,17 +140,50 @@ const Checkout: React.FC = () => {
       is_digital: item.isDigital,
     }));
 
-    const result2 = await createOrder(orderData, orderItems);
+    // Step 1: Create the order
+    const orderResult = await createOrder(orderData, orderItems);
 
-    if (result2.success && result2.order) {
-      setOrderSuccess({ orderNumber: result2.order.order_number });
-      clearCart();
-      toast.success('Order placed successfully!');
-    } else if (result2.retryAfter) {
-      const minutes = Math.ceil(result2.retryAfter / 60);
-      setRateLimitMessage(`Too many orders. Please wait ${minutes} minutes before placing another order.`);
+    if (!orderResult.success || !orderResult.order) {
+      if (orderResult.retryAfter) {
+        const minutes = Math.ceil(orderResult.retryAfter / 60);
+        setRateLimitMessage(`Too many orders. Please wait ${minutes} minutes before placing another order.`);
+      }
+      return;
     }
+
+    // Step 2: Initialize Paystack payment
+    const paymentResult = await initializePayment(
+      formData.email,
+      total,
+      orderResult.order.id,
+      {
+        customer_name: formData.fullName,
+        phone: formData.phone,
+        order_number: orderResult.order.order_number,
+      }
+    );
+
+    if (!paymentResult.success || !paymentResult.authorization_url) {
+      toast.error(paymentResult.error || 'Failed to initialize payment');
+      return;
+    }
+
+    // Step 3: Redirect to Paystack payment page
+    toast.info('Redirecting to payment...');
+    window.location.href = paymentResult.authorization_url;
   };
+
+  if (isVerifying) {
+    return (
+      <Layout>
+        <div className="container-narrow py-16 text-center">
+          <Loader2 className="h-16 w-16 mx-auto mb-4 animate-spin text-primary" />
+          <h1 className="font-heading text-2xl font-bold mb-4">Verifying Payment...</h1>
+          <p className="text-muted-foreground">Please wait while we confirm your payment.</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (items.length === 0 && !orderSuccess) {
     return (
@@ -139,7 +204,7 @@ const Checkout: React.FC = () => {
       <Layout>
         <div className="container-narrow py-16 text-center">
           <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
-          <h1 className="font-heading text-2xl font-bold mb-4">Order Placed Successfully!</h1>
+          <h1 className="font-heading text-2xl font-bold mb-4">Payment Successful!</h1>
           <p className="text-muted-foreground mb-2">Your order number is:</p>
           <p className="font-mono text-xl font-bold mb-6">{orderSuccess.orderNumber}</p>
           <p className="text-muted-foreground mb-8">
@@ -165,10 +230,10 @@ const Checkout: React.FC = () => {
           </Alert>
         )}
 
-        {orderError && !rateLimitMessage && (
+        {(orderError || paymentError) && !rateLimitMessage && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{orderError}</AlertDescription>
+            <AlertDescription>{orderError || paymentError}</AlertDescription>
           </Alert>
         )}
 
@@ -357,13 +422,19 @@ const Checkout: React.FC = () => {
                         Processing...
                       </>
                     ) : (
-                      `Place Order - ${formatPrice(total)}`
+                      <>
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pay with Paystack - {formatPrice(total)}
+                      </>
                     )}
                   </Button>
 
-                  <p className="text-xs text-muted-foreground text-center">
-                    Payment will be collected upon delivery (Cash on Delivery)
-                  </p>
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm-1-7v2h2v-2h-2zm0-8v6h2V7h-2z"/>
+                    </svg>
+                    <span>Secure payment powered by Paystack</span>
+                  </div>
                 </CardContent>
               </Card>
             </div>
