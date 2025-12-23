@@ -13,8 +13,11 @@ export interface Product {
   is_active: boolean;
   featured: boolean;
   images: string[];
-  digital_file_url: string | null;
+  // SECURITY: digital_file_url is intentionally not fetched in public queries
+  // to prevent unauthorized access to digital product files
+  digital_file_url?: string | null;
   created_at: string;
+  updated_at?: string;
   category?: {
     id: string;
     name: string;
@@ -34,10 +37,24 @@ export const useProducts = (options?: {
   return useQuery({
     queryKey: ['products', options],
     queryFn: async () => {
+      // SECURITY: Explicitly select columns to avoid exposing digital_file_url
+      // digital_file_url should only be accessed after purchase verification
       let query = supabase
         .from('products')
         .select(`
-          *,
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          category_id,
+          product_type,
+          is_active,
+          featured,
+          images,
+          created_at,
+          updated_at,
           category:categories(id, name, slug),
           inventory(quantity, low_stock_threshold)
         `)
@@ -64,10 +81,24 @@ export const useProduct = (slug: string) => {
   return useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
+      // SECURITY: Explicitly select columns to avoid exposing digital_file_url
+      // digital_file_url should only be accessed after purchase verification
       const { data, error } = await supabase
         .from('products')
         .select(`
-          *,
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          category_id,
+          product_type,
+          is_active,
+          featured,
+          images,
+          created_at,
+          updated_at,
           category:categories(id, name, slug),
           inventory(quantity, low_stock_threshold),
           variants:product_variants(*)
