@@ -1,11 +1,25 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const sendOrderEmailSchema = z.object({
+  orderId: z.string()
+    .uuid({ message: "Invalid order ID format" }),
+  emailType: z.enum(['shipped', 'delivered'], { 
+    errorMap: () => ({ message: 'Invalid emailType. Must be "shipped" or "delivered"' })
+  }),
+  trackingNumber: z.string()
+    .trim()
+    .max(100, { message: "Tracking number too long" })
+    .optional(),
+});
 
 interface OrderItem {
   product_name: string;
@@ -152,21 +166,23 @@ serve(async (req) => {
       );
     }
 
-    const { orderId, emailType, trackingNumber } = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = sendOrderEmailSchema.safeParse(rawBody);
 
-    if (!orderId || !emailType) {
+    if (!validationResult.success) {
+      const errors = validationResult.error.issues.map(issue => ({
+        field: issue.path.join('.'),
+        message: issue.message
+      }));
+      console.error('Validation failed:', errors);
       return new Response(
-        JSON.stringify({ error: 'orderId and emailType are required' }),
+        JSON.stringify({ error: 'Validation failed', details: errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!['shipped', 'delivered'].includes(emailType)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid emailType. Must be "shipped" or "delivered"' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { orderId, emailType, trackingNumber } = validationResult.data;
 
     console.log(`Sending ${emailType} email for order ${orderId}`);
 

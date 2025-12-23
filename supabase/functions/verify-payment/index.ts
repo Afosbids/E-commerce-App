@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 declare const EdgeRuntime: { waitUntil: (promise: Promise<void>) => void };
 
@@ -8,6 +9,26 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const verifyPaymentSchema = z.object({
+  reference: z.string()
+    .trim()
+    .min(1, { message: "Reference is required" })
+    .max(255, { message: "Reference too long" })
+    .regex(/^[a-zA-Z0-9_-]+$/, { message: "Invalid reference format" }),
+  orderId: z.string()
+    .uuid({ message: "Invalid order ID format" }),
+  customerEmail: z.string()
+    .trim()
+    .email({ message: "Invalid email address" })
+    .max(255, { message: "Email too long" })
+    .optional(),
+  customerName: z.string()
+    .trim()
+    .max(255, { message: "Customer name too long" })
+    .optional(),
+});
 
 interface OrderItem {
   product_name: string;
@@ -136,14 +157,23 @@ serve(async (req) => {
       );
     }
 
-    const { reference, orderId, customerEmail, customerName } = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = verifyPaymentSchema.safeParse(rawBody);
 
-    if (!reference || !orderId) {
+    if (!validationResult.success) {
+      const errors = validationResult.error.issues.map(issue => ({
+        field: issue.path.join('.'),
+        message: issue.message
+      }));
+      console.error('Validation failed:', errors);
       return new Response(
-        JSON.stringify({ error: 'Reference and orderId are required' }),
+        JSON.stringify({ error: 'Validation failed', details: errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { reference, orderId, customerEmail, customerName } = validationResult.data;
 
     console.log(`Verifying payment for order ${orderId}, reference: ${reference}`);
 
