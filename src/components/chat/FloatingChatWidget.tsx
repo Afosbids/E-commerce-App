@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAIChat, Message } from '@/hooks/useAIChat';
 import { Bot, Send, User, Loader2, MessageCircle, X, Minimize2 } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface ChatMessageProps {
-  message: Message;
+  message: Message & { timestamp?: Date };
   isStreaming?: boolean;
 }
 
@@ -32,10 +33,28 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
             <span className="inline-block w-1 h-3 ml-1 bg-current animate-pulse" />
           )}
         </div>
+        {message.timestamp && (
+          <p className={`text-[10px] text-muted-foreground mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+            {format(message.timestamp, 'h:mm a')}
+          </p>
+        )}
       </div>
     </div>
   );
 };
+
+const TypingIndicator: React.FC = () => (
+  <div className="flex gap-2">
+    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+      <Bot className="h-3 w-3" />
+    </div>
+    <div className="bg-muted rounded-lg px-3 py-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+    </div>
+  </div>
+);
 
 export const FloatingChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -124,14 +143,7 @@ export const FloatingChatWidget: React.FC = () => {
                   ))
                 )}
                 {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                  <div className="flex gap-2">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    </div>
-                    <div className="flex items-center text-muted-foreground text-xs">
-                      Thinking...
-                    </div>
-                  </div>
+                  <TypingIndicator />
                 )}
               </div>
             </ScrollArea>
