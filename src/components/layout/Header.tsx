@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search, Package, FileDown } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Package, FileDown, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -40,6 +40,10 @@ const Header: React.FC = () => {
           </Link>
           <Link to="/categories" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Categories
+          </Link>
+          <Link to="/chat" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <MessageCircle className="h-4 w-4" />
+            AI Chat
           </Link>
         </nav>
 
@@ -134,6 +138,14 @@ const Header: React.FC = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               Categories
+            </Link>
+            <Link 
+              to="/chat" 
+              className="py-2 text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              AI Chat
             </Link>
           </nav>
         </div>
