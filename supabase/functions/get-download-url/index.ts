@@ -1,10 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const downloadRequestSchema = z.object({
+  productId: z.string()
+    .uuid({ message: "Invalid product ID format" })
+    .optional(),
+  orderItemId: z.string()
+    .uuid({ message: "Invalid order item ID format" })
+    .optional(),
+}).refine(
+  (data) => data.productId || data.orderItemId,
+  { message: "Either productId or orderItemId is required" }
+);
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -44,15 +58,23 @@ serve(async (req) => {
 
     console.log(`Download request from user: ${user.id}`);
 
-    // Parse request body
-    const { productId, orderItemId } = await req.json();
-    
-    if (!productId && !orderItemId) {
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = downloadRequestSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      const errors = validationResult.error.issues.map(issue => ({
+        field: issue.path.join('.'),
+        message: issue.message
+      }));
+      console.error('Validation failed:', errors);
       return new Response(
-        JSON.stringify({ error: 'Either productId or orderItemId is required' }),
+        JSON.stringify({ error: 'Validation failed', details: errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { productId, orderItemId } = validationResult.data;
 
     // Create admin client to query across tables
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);

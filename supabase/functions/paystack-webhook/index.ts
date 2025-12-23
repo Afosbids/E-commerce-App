@@ -1,6 +1,23 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+// Paystack webhook event validation schema
+const paystackEventSchema = z.object({
+  event: z.string().min(1).max(100),
+  data: z.object({
+    reference: z.string().min(1).max(255),
+    status: z.string().min(1).max(50),
+    amount: z.number().nonnegative(),
+    customer: z.object({
+      email: z.string().email().optional(),
+    }).optional(),
+    metadata: z.object({
+      order_id: z.string().uuid().optional(),
+    }).passthrough().optional(),
+  }).passthrough(),
+});
 
 interface OrderItem {
   product_name: string;
@@ -169,7 +186,22 @@ serve(async (req) => {
       return new Response('Invalid signature', { status: 401 });
     }
 
-    const event = JSON.parse(payload);
+    // Parse and validate the event
+    let parsedPayload;
+    try {
+      parsedPayload = JSON.parse(payload);
+    } catch {
+      console.error('Invalid JSON payload');
+      return new Response('Invalid JSON', { status: 400 });
+    }
+
+    const validationResult = paystackEventSchema.safeParse(parsedPayload);
+    if (!validationResult.success) {
+      console.error('Webhook payload validation failed:', validationResult.error.issues);
+      return new Response('Invalid payload structure', { status: 400 });
+    }
+
+    const event = validationResult.data;
     console.log(`Received Paystack webhook: ${event.event}`);
 
     // Only process charge.success events
