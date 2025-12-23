@@ -15,6 +15,7 @@ import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import Downloads from "./pages/Downloads";
 import Account from "./pages/Account";
+import Chat from "./pages/Chat";
 import AdminDashboard from "./pages/admin/Dashboard";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/orders" element={<Orders />} />
               <Route path="/downloads" element={<Downloads />} />
               <Route path="/account" element={<Account />} />
+              <Route path="/chat" element={<Chat />} />
               <Route path="/admin/*" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
