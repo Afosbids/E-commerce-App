@@ -3,8 +3,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAIChat, Message } from '@/hooks/useAIChat';
-import { Bot, Send, Trash2, User, Loader2, MessageSquare, Plus, History } from 'lucide-react';
+import { useChatExport } from '@/hooks/useChatExport';
+import { Bot, Send, Trash2, User, Loader2, MessageSquare, Plus, History, Download, FileText, FileDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ChatMessageProps {
@@ -51,6 +53,7 @@ export const AIChatbot: React.FC = () => {
     deleteConversation,
     isAuthenticated
   } = useAIChat();
+  const { exportAsText, exportAsPDF } = useChatExport();
   
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -159,15 +162,35 @@ export const AIChatbot: React.FC = () => {
               </Button>
             )}
             {messages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleNewChat}
-                className="text-muted-foreground"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                New
-              </Button>
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground">
+                      <Download className="h-4 w-4 mr-1" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => exportAsText(messages)}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as Text
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportAsPDF(messages)}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNewChat}
+                  className="text-muted-foreground"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  New
+                </Button>
+              </>
             )}
           </div>
         </CardHeader>
