@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import TwoFactorEnrollment from '@/components/auth/TwoFactorEnrollment';
+import PasswordChange from '@/components/auth/PasswordChange';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Lock, Key } from 'lucide-react';
 
@@ -30,6 +31,9 @@ const SecuritySettings: React.FC = () => {
       </div>
 
       <div className="grid gap-6">
+        {/* Password Change */}
+        <PasswordChange />
+
         {/* Two-Factor Authentication */}
         <TwoFactorEnrollment />
 
