@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: Date;
 }
 
 interface Conversation {
@@ -208,7 +209,7 @@ export function useAIChat() {
   const sendMessage = useCallback(async (input: string) => {
     if (!input.trim() || isLoading) return;
 
-    const userMsg: Message = { role: "user", content: input.trim() };
+    const userMsg: Message = { role: "user", content: input.trim(), timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
@@ -235,7 +236,7 @@ export function useAIChat() {
         if (last?.role === "assistant") {
           return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
         }
-        return [...prev, { role: "assistant", content: assistantSoFar }];
+        return [...prev, { role: "assistant", content: assistantSoFar, timestamp: new Date() }];
       });
     };
 
