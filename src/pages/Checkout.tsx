@@ -5,6 +5,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreateOrder } from '@/hooks/useCreateOrder';
 import { usePaystack } from '@/hooks/usePaystack';
+import { useProfile, useAddresses } from '@/hooks/useAccount';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,8 @@ const Checkout: React.FC = () => {
   const { user } = useAuth();
   const { createOrder, isLoading: isCreatingOrder, error: orderError } = useCreateOrder();
   const { initializePayment, verifyPayment, isLoading: isPaymentLoading, error: paymentError } = usePaystack();
+  const { data: profile } = useProfile();
+  const { data: addresses } = useAddresses();
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -48,10 +51,37 @@ const Checkout: React.FC = () => {
     postalCode: '',
     notes: '',
   });
+  const [hasPreFilled, setHasPreFilled] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string } | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  // Pre-fill form with profile and default address
+  useEffect(() => {
+    if (hasPreFilled) return;
+    
+    const defaultAddress = addresses?.find(addr => addr.is_default) || addresses?.[0];
+    
+    const shouldPreFill = profile || defaultAddress || user?.email;
+    if (!shouldPreFill) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      fullName: prev.fullName || profile?.full_name || '',
+      email: prev.email || profile?.email || user?.email || '',
+      phone: prev.phone || profile?.phone || '',
+      addressLine1: prev.addressLine1 || defaultAddress?.address_line1 || '',
+      addressLine2: prev.addressLine2 || defaultAddress?.address_line2 || '',
+      city: prev.city || defaultAddress?.city || '',
+      state: prev.state || defaultAddress?.state || '',
+      postalCode: prev.postalCode || defaultAddress?.postal_code || '',
+    }));
+    
+    if (profile || defaultAddress) {
+      setHasPreFilled(true);
+    }
+  }, [profile, addresses, user, hasPreFilled]);
 
   const total = subtotal + SHIPPING_COST;
   const isLoading = isCreatingOrder || isPaymentLoading || isVerifying;
