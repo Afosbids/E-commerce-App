@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Package, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import TwoFactorVerification from '@/components/auth/TwoFactorVerification';
 
 const emailSchema = z.string().email('Invalid email address').max(255);
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters').max(100);
@@ -53,7 +54,7 @@ const sanitizeAuthError = (error: Error): string => {
 };
 
 const Auth: React.FC = () => {
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, mfaRequired, clearMfaRequired, completeMfaLogin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -84,12 +85,12 @@ const Auth: React.FC = () => {
     }
   };
 
-  // Redirect if already logged in
+  // Redirect if already logged in (and no MFA required)
   React.useEffect(() => {
-    if (user) {
+    if (user && !mfaRequired) {
       navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, mfaRequired, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,15 +106,29 @@ const Auth: React.FC = () => {
     }
 
     setLoading(true);
-    const { error } = await signIn(signInEmail, signInPassword);
+    const { error, mfaRequired: mfa } = await signIn(signInEmail, signInPassword);
     setLoading(false);
 
     if (error) {
       toast({ title: 'Sign In Failed', description: sanitizeAuthError(error), variant: 'destructive' });
+    } else if (mfa?.required) {
+      // MFA is required - don't navigate, show 2FA verification
+      toast({ title: 'Two-Factor Authentication Required', description: 'Please enter your verification code' });
     } else {
       toast({ title: 'Welcome back!' });
       navigate('/');
     }
+  };
+
+  const handleMfaVerified = () => {
+    completeMfaLogin();
+    toast({ title: 'Welcome back!' });
+    navigate('/');
+  };
+
+  const handleMfaCancel = async () => {
+    await supabase.auth.signOut();
+    clearMfaRequired();
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -140,6 +155,28 @@ const Auth: React.FC = () => {
       toast({ title: 'Account created!', description: 'You can now sign in.' });
     }
   };
+
+  // Show 2FA verification if required
+  if (mfaRequired?.required && mfaRequired.factorId) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="container-narrow py-8">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
+            <ArrowLeft className="h-4 w-4" />
+            Back to store
+          </Link>
+
+          <div className="flex justify-center">
+            <TwoFactorVerification
+              factorId={mfaRequired.factorId}
+              onVerified={handleMfaVerified}
+              onCancel={handleMfaCancel}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

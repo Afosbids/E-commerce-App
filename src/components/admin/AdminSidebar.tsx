@@ -11,7 +11,8 @@ import {
   Truck,
   ArrowLeft,
   Star,
-  Shield
+  Shield,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/shipping', label: 'Shipping', icon: Truck },
   { href: '/admin/audit-logs', label: 'Audit Logs', icon: Shield },
+  { href: '/admin/security', label: 'Security', icon: ShieldCheck },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -1,15 +1,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, AuthenticatorAssuranceLevels } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+
+interface MFAInfo {
+  required: boolean;
+  factorId?: string;
+}
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; mfaRequired?: MFAInfo }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  mfaRequired: MFAInfo | null;
+  clearMfaRequired: () => void;
+  completeMfaLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState<MFAInfo | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -70,12 +79,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const checkMfaRequired = async (): Promise<MFAInfo | null> => {
+    try {
+      const { data: assuranceData, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError) return null;
+
+      // If current level is aal1 but next level needs aal2, MFA is required
+      if (assuranceData.currentLevel === 'aal1' && assuranceData.nextLevel === 'aal2') {
+        // Get the verified TOTP factor
+        const { data: factorsData } = await supabase.auth.mfa.listFactors();
+        const verifiedFactor = factorsData?.totp?.find(f => (f.status as string) === 'verified');
+        
+        if (verifiedFactor) {
+          return { required: true, factorId: verifiedFactor.id };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error: error as Error | null };
+    
+    if (error) {
+      return { error: error as Error | null };
+    }
+
+    // Check if MFA is required after successful password auth
+    const mfaInfo = await checkMfaRequired();
+    if (mfaInfo?.required) {
+      setMfaRequired(mfaInfo);
+      return { error: null, mfaRequired: mfaInfo };
+    }
+    
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -97,10 +139,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setMfaRequired(null);
+  };
+
+  const clearMfaRequired = () => {
+    setMfaRequired(null);
+  };
+
+  const completeMfaLogin = () => {
+    setMfaRequired(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, isAdmin }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      signIn, 
+      signUp, 
+      signOut, 
+      isAdmin,
+      mfaRequired,
+      clearMfaRequired,
+      completeMfaLogin
+    }}>
       {children}
     </AuthContext.Provider>
   );
