@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   useProfile,
   useUpdateProfile,
@@ -35,12 +36,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { User, MapPin, Plus, Pencil, Trash2, Star, Loader2 } from 'lucide-react';
+import { User, MapPin, Plus, Pencil, Trash2, Star, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
+import { toast } from 'sonner';
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   phone: z.string().max(20).optional(),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 });
 
 const addressSchema = z.object({
@@ -72,6 +83,13 @@ const Account: React.FC = () => {
   const [profileForm, setProfileForm] = useState({ full_name: '', phone: '' });
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<string | null>(null);
@@ -112,6 +130,55 @@ const Account: React.FC = () => {
       phone: profileForm.phone || undefined,
     });
     setIsEditingProfile(false);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrors({});
+
+    const result = passwordSchema.safeParse(passwordForm);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach(err => {
+        if (err.path[0]) errors[err.path[0] as string] = err.message;
+      });
+      setPasswordErrors(errors);
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      // First verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordForm.currentPassword,
+      });
+
+      if (signInError) {
+        setPasswordErrors({ currentPassword: 'Current password is incorrect' });
+        setPasswordLoading(false);
+        return;
+      }
+
+      // Update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+
+      if (updateError) {
+        toast.error(updateError.message || 'Failed to update password');
+        setPasswordLoading(false);
+        return;
+      }
+
+      toast.success('Password updated successfully');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setIsChangingPassword(false);
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const openAddressDialog = (address?: any) => {
@@ -268,6 +335,113 @@ const Account: React.FC = () => {
                     <p className="font-medium">{profile?.phone || '—'}</p>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Password Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-full">
+                    <Lock className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Password</CardTitle>
+                    <CardDescription>Update your account password</CardDescription>
+                  </div>
+                </div>
+                {!isChangingPassword && (
+                  <Button variant="outline" size="sm" onClick={() => setIsChangingPassword(true)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Change
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isChangingPassword ? (
+                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={passwordForm.currentPassword}
+                        onChange={e => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                        className={passwordErrors.currentPassword ? 'border-destructive pr-10' : 'pr-10'}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.currentPassword && (
+                      <p className="text-sm text-destructive mt-1">{passwordErrors.currentPassword}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={passwordForm.newPassword}
+                        onChange={e => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                        className={passwordErrors.newPassword ? 'border-destructive pr-10' : 'pr-10'}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.newPassword && (
+                      <p className="text-sm text-destructive mt-1">{passwordErrors.newPassword}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={e => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className={passwordErrors.confirmPassword ? 'border-destructive' : ''}
+                    />
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-sm text-destructive mt-1">{passwordErrors.confirmPassword}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={passwordLoading}>
+                      {passwordLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Update Password
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsChangingPassword(false);
+                        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        setPasswordErrors({});
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Password last updated: Unknown
+                </p>
               )}
             </CardContent>
           </Card>
