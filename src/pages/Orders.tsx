@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomerOrders } from '@/hooks/useCustomerOrders';
+import { useDigitalDownload } from '@/hooks/useDigitalDownload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,26 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Package, ShoppingBag, Clock, CheckCircle, XCircle, Truck, CreditCard } from 'lucide-react';
+import { Package, ShoppingBag, Clock, CheckCircle, XCircle, Truck, CreditCard, Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Orders: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { data: orders, isLoading, error } = useCustomerOrders();
+  const { downloadProduct, isLoading: isDownloading } = useDigitalDownload();
+  const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
 
+  const handleDownload = async (orderItemId: string, productName: string) => {
+    setDownloadingItemId(orderItemId);
+    const result = await downloadProduct(undefined, orderItemId);
+    setDownloadingItemId(null);
+    
+    if (result.success) {
+      toast.success(`Downloading ${productName}`);
+    } else {
+      toast.error(result.error || 'Failed to get download link');
+    }
+  };
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(price);
   };
@@ -154,14 +169,42 @@ const Orders: React.FC = () => {
                         <div className="space-y-3 pt-2">
                           {order.order_items.map(item => (
                             <div key={item.id} className="flex justify-between items-start text-sm">
-                              <div>
-                                <p className="font-medium">{item.product_name}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{item.product_name}</p>
+                                  {item.is_digital && (
+                                    <Badge variant="outline" className="text-xs">Digital</Badge>
+                                  )}
+                                </div>
                                 {item.variant_name && (
                                   <p className="text-muted-foreground text-xs">{item.variant_name}</p>
                                 )}
                                 <p className="text-muted-foreground">Qty: {item.quantity}</p>
+                                
+                                {/* Download button for paid digital products */}
+                                {item.is_digital && order.payment_status === 'paid' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-2 h-8"
+                                    onClick={() => handleDownload(item.id, item.product_name)}
+                                    disabled={isDownloading && downloadingItemId === item.id}
+                                  >
+                                    {isDownloading && downloadingItemId === item.id ? (
+                                      <>
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                        Getting link...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="h-3 w-3 mr-1" />
+                                        Download
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
                               </div>
-                              <p className="font-medium">{formatPrice(item.total_price)}</p>
+                              <p className="font-medium ml-4">{formatPrice(item.total_price)}</p>
                             </div>
                           ))}
                           

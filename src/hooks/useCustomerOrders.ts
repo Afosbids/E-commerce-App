@@ -9,6 +9,7 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  is_digital: boolean;
 }
 
 interface Order {
@@ -74,7 +75,8 @@ export const useCustomerOrders = () => {
             variant_name,
             quantity,
             unit_price,
-            total_price
+            total_price,
+            is_digital
           )
         `)
         .eq('customer_id', customer.id)
