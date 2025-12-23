@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search, Package } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Package, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -76,6 +76,12 @@ const Header: React.FC = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/orders">My Orders</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/downloads" className="flex items-center gap-2">
+                    <FileDown className="h-4 w-4" />
+                    My Downloads
+                  </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <>
