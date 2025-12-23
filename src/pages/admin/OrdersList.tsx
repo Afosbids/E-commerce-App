@@ -25,7 +25,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Eye } from 'lucide-react';
+import { ShoppingCart, Eye, Mail, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import type { Order } from '@/hooks/useOrders';
 
 const statusOptions = [
@@ -41,6 +42,7 @@ const OrdersList: React.FC = () => {
   const updateStatus = useUpdateOrderStatus();
   const { toast } = useToast();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
@@ -82,6 +84,28 @@ const OrdersList: React.FC = () => {
       toast({ title: 'Order status updated' });
     } catch (error) {
       toast({ title: 'Failed to update status', variant: 'destructive' });
+    }
+  };
+
+  const handleSendEmail = async (orderId: string, emailType: 'shipped' | 'delivered') => {
+    setSendingEmail(`${orderId}-${emailType}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-order-email', {
+        body: { orderId, emailType }
+      });
+
+      if (error) throw error;
+
+      toast({ title: data.message || `${emailType} email sent successfully` });
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast({ 
+        title: 'Failed to send email', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    } finally {
+      setSendingEmail(null);
     }
   };
 
@@ -241,6 +265,41 @@ const OrdersList: React.FC = () => {
                   <span>{formatCurrency(selectedOrder.total)}</span>
                 </div>
               </div>
+
+              {/* Email Actions */}
+              {selectedOrder.payment_status === 'paid' && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3">Send Email Notification</h4>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendEmail(selectedOrder.id, 'shipped')}
+                      disabled={sendingEmail === `${selectedOrder.id}-shipped`}
+                    >
+                      {sendingEmail === `${selectedOrder.id}-shipped` ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4 mr-2" />
+                      )}
+                      Send Shipped Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendEmail(selectedOrder.id, 'delivered')}
+                      disabled={sendingEmail === `${selectedOrder.id}-delivered`}
+                    >
+                      {sendingEmail === `${selectedOrder.id}-delivered` ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4 mr-2" />
+                      )}
+                      Send Delivered Email
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
