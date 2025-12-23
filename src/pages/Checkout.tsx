@@ -12,9 +12,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShoppingBag, Loader2, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
+import { ShoppingBag, Loader2, CheckCircle, AlertCircle, CreditCard, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const shippingSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -51,6 +58,7 @@ const Checkout: React.FC = () => {
     postalCode: '',
     notes: '',
   });
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('new');
   const [hasPreFilled, setHasPreFilled] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string } | null>(null);
@@ -78,10 +86,42 @@ const Checkout: React.FC = () => {
       postalCode: prev.postalCode || defaultAddress?.postal_code || '',
     }));
     
+    if (defaultAddress) {
+      setSelectedAddressId(defaultAddress.id);
+    }
+    
     if (profile || defaultAddress) {
       setHasPreFilled(true);
     }
   }, [profile, addresses, user, hasPreFilled]);
+
+  // Handle address selection change
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    
+    if (addressId === 'new') {
+      setFormData(prev => ({
+        ...prev,
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        postalCode: '',
+      }));
+    } else {
+      const selectedAddress = addresses?.find(addr => addr.id === addressId);
+      if (selectedAddress) {
+        setFormData(prev => ({
+          ...prev,
+          addressLine1: selectedAddress.address_line1,
+          addressLine2: selectedAddress.address_line2 || '',
+          city: selectedAddress.city,
+          state: selectedAddress.state,
+          postalCode: selectedAddress.postal_code || '',
+        }));
+      }
+    }
+  };
 
   const total = subtotal + SHIPPING_COST;
   const isLoading = isCreatingOrder || isPaymentLoading || isVerifying;
@@ -349,6 +389,34 @@ const Checkout: React.FC = () => {
                   <CardTitle>Shipping Address</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {addresses && addresses.length > 0 && (
+                    <div>
+                      <Label>Select Address</Label>
+                      <Select value={selectedAddressId} onValueChange={handleAddressSelect}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a saved address" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {addresses.map((addr) => (
+                            <SelectItem key={addr.id} value={addr.id}>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3 w-3 text-muted-foreground" />
+                                <span>
+                                  {addr.address_line1}, {addr.city}
+                                  {addr.is_default && (
+                                    <span className="ml-2 text-xs text-primary">(Default)</span>
+                                  )}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="new">
+                            <span className="text-muted-foreground">+ Enter new address</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="addressLine1">Address Line 1 *</Label>
                     <Input
