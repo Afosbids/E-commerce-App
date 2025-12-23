@@ -10,7 +10,8 @@ import {
   FolderTree,
   Truck,
   ArrowLeft,
-  Star
+  Star,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { href: '/admin/customers', label: 'Customers', icon: Users },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/shipping', label: 'Shipping', icon: Truck },
+  { href: '/admin/audit-logs', label: 'Audit Logs', icon: Shield },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
