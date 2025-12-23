@@ -63,14 +63,16 @@ export const usePaystack = () => {
 
   const verifyPayment = async (
     reference: string,
-    orderId: string
+    orderId: string,
+    customerEmail?: string,
+    customerName?: string
   ): Promise<VerifyPaymentResult> => {
     setIsLoading(true);
     setError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('verify-payment', {
-        body: { reference, orderId },
+        body: { reference, orderId, customerEmail, customerName },
       });
 
       if (fnError) {

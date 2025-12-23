@@ -65,7 +65,24 @@ const Checkout: React.FC = () => {
 
       if (shouldVerify && orderId && reference) {
         setIsVerifying(true);
-        const result = await verifyPayment(reference, orderId);
+        
+        // Retrieve customer info from localStorage
+        const storedCustomer = localStorage.getItem('checkout_customer');
+        let customerEmail: string | undefined;
+        let customerName: string | undefined;
+        
+        if (storedCustomer) {
+          try {
+            const parsed = JSON.parse(storedCustomer);
+            customerEmail = parsed.email;
+            customerName = parsed.name;
+          } catch (e) {
+            console.error('Error parsing stored customer info:', e);
+          }
+          localStorage.removeItem('checkout_customer');
+        }
+        
+        const result = await verifyPayment(reference, orderId, customerEmail, customerName);
         setIsVerifying(false);
 
         if (result.success) {
@@ -167,6 +184,12 @@ const Checkout: React.FC = () => {
       toast.error(paymentResult.error || 'Failed to initialize payment');
       return;
     }
+
+    // Store customer info for email after payment verification
+    localStorage.setItem('checkout_customer', JSON.stringify({
+      email: formData.email,
+      name: formData.fullName,
+    }));
 
     // Step 3: Redirect to Paystack payment page
     toast.info('Redirecting to payment...');
